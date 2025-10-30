@@ -64,10 +64,9 @@ curl http://localhost:8080/health
 
 ## Run on Podman and Kubernetes
 
-Isolated session bus (user bus) exclusively for the POD, without system/host access and privileged requirements (and security issues).
-Only the containers in a same POD running with a same: user, shared volume(socket/bus) is able to use the session bus.
+Isolated session bus (user bus) dedicated to the POD, with no access to the system or host, and without requiring elevated privileges (eliminating related security risks). Only containers within the same POD that share the same user and volume (unix_socket/bus) can access this session bus.
 
-The containers in the POD need to implements their own Dbus interfaces (only related for the app/service workload) and only these interfaces are available via the REST API.
+Each container in the POD must implement its own D-Bus interfaces related to its application or service workload. Only these interfaces are exposed through the REST API.
 
 ## Run as Systemd Service
 
