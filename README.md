@@ -16,40 +16,6 @@ A REST API server for introspecting and controlling the Linux D-Bus system.
 - **Framework**: [Go Fuego](https://github.com/go-fuego/fuego) - Modern Go web framework
 - **D-Bus Library**: [godbus](https://github.com/godbus/dbus) - Pure Go D-Bus library
 
-## Quick Start
-
-### Prerequisites
-
-- Go 1.21 or later
-- Linux with D-Bus installed
-- Access to system and/or session D-Bus (for testing)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/mesbrj/dbus-controller.git
-cd dbus-controller
-
-# Install dependencies
-make deps
-
-# Build and run
-make run
-```
-
-The server will start on `http://localhost:8080`.
-
-### Docker
-
-```bash
-# Build and run with Docker
-make docker-run
-
-# Or use docker-compose
-make docker-compose-up
-```
-
 ## API Overview
 
 ### Base URL
@@ -91,22 +57,19 @@ curl -X POST http://localhost:8080/buses/system/services/org.freedesktop.DBus/in
 
 # Get a property
 curl http://localhost:8080/buses/system/services/org.freedesktop.DBus/interfaces/org.freedesktop.DBus/properties/Features
+
+# Health check
+curl http://localhost:8080/health
 ```
 
-## Development
+## Run on Podman and Kubernetes
 
-### Docker
+Isolated session bus (user bus) exclusively for the POD, without system/host access and privileged requirements (and security issues).
+Only the containers in a same POD running with a same: user, shared volume(socket/bus) is able to use the session bus.
 
-```bash
-docker run -d \
-  --name dbus-controller \
-  --privileged \
-  -p 8080:8080 \
-  -v /var/run/dbus:/var/run/dbus:ro \
-  mesbrj/dbus-controller:latest
-```
+The containers in the POD need to implements their own Dbus interfaces (only related for the app/service workload) and only these interfaces are available via the REST API.
 
-### Systemd Service
+## Run as Systemd Service
 
 Create `/etc/systemd/system/dbus-controller.service`:
 
@@ -124,11 +87,4 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-```
-
-## Health Checks
-
-The service provides health check endpoints:
-```bash
-curl http://localhost:8080/health
 ```
