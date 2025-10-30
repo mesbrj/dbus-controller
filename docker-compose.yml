@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  dbus-controller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=info
+    volumes:
+      - /var/run/dbus:/var/run/dbus:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true  # Required for D-Bus system access
+    restart: unless-stopped
+    
+  dbus-system:
+    image: busybox
+    command: ['sh', '-c', 'while true; do sleep 30; done']
+    privileged: true
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    restart: unless-stopped
