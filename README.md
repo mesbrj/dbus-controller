@@ -132,4 +132,3 @@ The service provides health check endpoints:
 ```bash
 curl http://localhost:8080/health
 ```
-
