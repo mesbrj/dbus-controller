@@ -18,11 +18,6 @@ A REST API server for introspecting and controlling the Linux D-Bus system.
 
 ## API Overview
 
-### Base URL
-```
-http://localhost:8080
-```
-
 ### Main Endpoints
 
 | Endpoint | Method | Description |
@@ -68,22 +63,10 @@ Isolated session bus (user bus) dedicated to the POD, with no access to the syst
 
 Each container in the POD must implement its own D-Bus interfaces related to its application or service workload. Only these interfaces are exposed through the REST API.
 
-## Run as Systemd Service
+Docker can be used instead of Podman, but Podman is preferred for its POD support and isolation.
+In a Docker environment, all containers are able to access the session bus (if configured for it).
 
-Create `/etc/systemd/system/dbus-controller.service`:
+## Run on VMs and physical computers (x86-64, ARM-arch32-64 and single-board computers)
 
-```ini
-[Unit]
-Description=D-Bus Controller API
-After=network.target
-
-[Service]
-Type=simple
-User=dbus-controller
-ExecStart=/usr/local/bin/dbus-controller
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+The D-Bus (software and libraries from freedesktop.org) works in Unix and Linux systems apart from the init system (Systemd, SysV, OpenRC, BSD rc, etc).
+In this scenario, the D-Bus Controller can be run as a service or application that connects to the system and session buses of the host system.
