@@ -1,9 +1,11 @@
 module github.com/mesbrj/dbus-controller
 
-go 1.24.6
+go 1.23.0
+
+toolchain go1.24.6
 
 require (
-	github.com/go-fuego/fuego v0.18.8
+	github.com/go-fuego/fuego v0.16.1
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -18,7 +20,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.26.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/schema v1.4.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect

@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dbus-controller-test-pod
+  labels:
+    app: dbus-controller
+    environment: test
+spec:
+  restartPolicy: Never
+  volumes:
+    - name: dbus-system-socket
+      hostPath:
+        path: /var/run/dbus
+        type: Directory
+    - name: dbus-session-socket
+      emptyDir: {}
+    - name: app-source
+      hostPath:
+        path: /home/mesb/msb_respos/dbus-controller
+        type: Directory
+  containers:
+    - name: dbus-session-daemon
+      image: debian:bookworm-slim
+      command: ["/bin/bash", "-c"]
+      args:
+        - |
+          set -e
+          echo "Installing D-Bus..."
+          apt-get update -qq && apt-get install -y --no-install-recommends dbus procps curl
+          
+          echo "Starting D-Bus session daemon..."
+          mkdir -p /var/run/dbus-session
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=/var/run/dbus-session/session_bus_socket"
+          
+          dbus-daemon --session \
+            --address="$DBUS_SESSION_BUS_ADDRESS" \
+            --nofork \
+            --print-pid &
+          DBUS_PID=$!
+          
+          # Wait for D-Bus to be ready
+          sleep 2
+          
+          echo "D-Bus session daemon started with PID: $DBUS_PID"
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+          
+          # Keep the daemon running and monitor it
+          while kill -0 $DBUS_PID 2>/dev/null; do
+            sleep 10
+          done
+          
+          echo "D-Bus session daemon (PID: $DBUS_PID) died, exiting"
+          exit 1
+      volumeMounts:
+        - name: dbus-session-socket
+          mountPath: /var/run/dbus-session
+      securityContext:
+        runAsUser: 0  # Run as root to install packages
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "25m"
+        limits:
+          memory: "64Mi"
+          cpu: "100m"
+    
+    - name: dbus-controller
+      image: golang:1.23-bookworm
+      workingDir: /app
+      command: ["/bin/bash", "-c"]
+      args:
+        - |
+          set -e
+          echo "Installing dependencies..."
+          apt-get update -qq && apt-get install -y --no-install-recommends dbus curl jq
+          
+          echo "Building D-Bus Controller..."
+          cd /app
+          
+          # Update go.mod to use compatible Go version
+          sed -i 's/go 1.21/go 1.23/' go.mod
+          
+          go mod download
+          go build -o dbus-controller ./cmd/server
+          
+          echo "Waiting for D-Bus session daemon..."
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=/var/run/dbus-session/session_bus_socket"
+          
+          # Wait for session bus to be available
+          for i in {1..30}; do
+            if [ -S /var/run/dbus-session/session_bus_socket ]; then
+              echo "D-Bus session socket found"
+              break
+            fi
+            echo "Waiting for D-Bus session socket... ($i/30)"
+            sleep 1
+          done
+          
+          echo "Testing D-Bus connectivity..."
+          dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames || echo "Session bus test failed"
+          
+          echo "Starting D-Bus Controller API..."
+          ./dbus-controller &
+          API_PID=$!
+          
+          # Wait for API to be ready
+          echo "Waiting for API to start..."
+          for i in {1..30}; do
+            if curl -s -f http://localhost:8080/buses >/dev/null 2>&1; then
+              echo "API is ready!"
+              break
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 1
+          done
+          
+          echo "Testing API endpoints..."
+          echo "=== Available buses ==="
+          curl -s http://localhost:8080/buses | jq '.' || curl -s http://localhost:8080/buses
+          
+          echo -e "\n=== System bus services ==="
+          curl -s http://localhost:8080/buses/system/services | jq '. | length' || echo "System bus not available in container"
+          
+          echo -e "\n=== Session bus services ==="
+          curl -s http://localhost:8080/buses/session/services | jq '. | length' || curl -s http://localhost:8080/buses/session/services
+          
+          echo -e "\n=== API Documentation ==="
+          echo "OpenAPI spec: http://localhost:8080/swagger/openapi.json"
+          echo "Swagger UI: http://localhost:8080/swagger/index.html"
+          
+          # Keep the API running for testing
+          echo -e "\n=== API is running ==="
+          echo "Access the API at: http://localhost:8080"
+          wait $API_PID
+      volumeMounts:
+        - name: dbus-system-socket
+          mountPath: /var/run/dbus
+          readOnly: true
+        - name: dbus-session-socket
+          mountPath: /var/run/dbus-session
+        - name: app-source
+          mountPath: /app
+      env:
+        - name: DBUS_SESSION_BUS_ADDRESS
+          value: "unix:path=/var/run/dbus-session/session_bus_socket"
+        - name: CGO_ENABLED
+          value: "0"
+        - name: GOOS
+          value: "linux"
+      securityContext:
+        runAsUser: 0  # Run as root to install packages
+        allowPrivilegeEscalation: false
+      resources:
+        requests:
+          memory: "256Mi"
+          cpu: "100m"
+        limits:
+          memory: "512Mi"
+          cpu: "500m"

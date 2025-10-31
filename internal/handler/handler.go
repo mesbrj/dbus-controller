@@ -85,7 +85,7 @@ type CallMethodRequest struct {
 }
 
 // CallMethod executes a D-Bus method call
-func (h *Handler) CallMethod(c fuego.ContextWithBody[CallMethodRequest]) (*model.MethodCallResult, error) {
+func (h *Handler) CallMethod(c *fuego.ContextWithBody[CallMethodRequest]) (*model.MethodCallResult, error) {
 	busType := c.PathParam("busType")
 	serviceName := c.PathParam("serviceName")
 	interfaceName := c.PathParam("interfaceName")
@@ -122,7 +122,7 @@ type SetPropertyRequest struct {
 }
 
 // SetProperty sets the value of a specific property
-func (h *Handler) SetProperty(c fuego.ContextWithBody[SetPropertyRequest]) (*model.PropertyValue, error) {
+func (h *Handler) SetProperty(c *fuego.ContextWithBody[SetPropertyRequest]) (*model.PropertyValue, error) {
 	busType := c.PathParam("busType")
 	serviceName := c.PathParam("serviceName")
 	interfaceName := c.PathParam("interfaceName")
