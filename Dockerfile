@@ -23,9 +23,9 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus \
     dbus-user-session \
+    ca-certificates \
     curl \
     jq \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security

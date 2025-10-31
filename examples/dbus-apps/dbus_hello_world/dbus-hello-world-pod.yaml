@@ -14,7 +14,7 @@ spec:
   containers:
     # Container 1: D-Bus Session Daemon + D-Bus Controller Application
     - name: dbus-controller-service
-      image: localhost/dbus-controller:latest  # Dockerfile.dbus-controller
+      image: localhost/dbus-controller:latest  # Dockerfile (root of repo)
       securityContext:
         allowPrivilegeEscalation: false
         runAsUser: 1000
@@ -161,6 +161,73 @@ spec:
 
           echo "HelloWorld interface properties..."
           dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.GetAll string:"com.example.HelloWorld" || echo "Failed to get HelloWorld properties"
+
+      volumeMounts:
+        - name: dbus-session-socket
+          mountPath: /shared/dbus
+      env:
+        - name: DBUS_SESSION_BUS_ADDRESS
+          value: "unix:path=/shared/dbus/session_bus_socket"
+        - name: HOME
+          value: "/tmp/dbus-home"
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "50m"
+        limits:
+          memory: "128Mi"
+          cpu: "100m"
+
+    # Container 3: D-Bus Hello World Client
+    - name: dbus-hello-world-client
+      image: dbus-hello-world:latest  # examples/dbus-apps/dbus_hello_world/Dockerfile
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsUser: 1000
+        runAsGroup: 1000
+        capabilities:
+          drop:
+            - ALL
+      command:
+        - /bin/bash
+        - -c
+        - |
+          echo "=== D-Bus Hello World Client Container ==="
+          echo "Waiting for shared D-Bus session..."
+          
+          # Wait for D-Bus session daemon from first container
+          echo "Waiting for isolated D-Bus session..."
+          while [ ! -S /shared/dbus/session_bus_socket ]; do
+            echo "  Waiting for D-Bus socket..."
+            sleep 2
+          done
+          
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=/shared/dbus/session_bus_socket"
+          echo "Connected to shared session bus: $DBUS_SESSION_BUS_ADDRESS"
+
+          echo "Starting continuous D-Bus client testing loop..."
+          
+          # Continuous testing loop
+          counter=1
+          while true; do
+            echo "=== Test Round $counter $(date) ==="
+            
+            echo "1. Testing Hello method..."
+            dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld com.example.HelloWorld.Hello string:"Client-$counter" || echo "Method call failed"
+            
+            echo "2. Getting Data property..."
+            dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.Get string:"com.example.HelloWorld" string:"Data" || echo "Failed to get Data property"
+            
+            echo "3. Getting PID property..."
+            dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.Get string:"com.example.HelloWorld" string:"PID" || echo "Failed to get PID property"
+            
+            echo "4. Listing available services..."
+            dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep -c "com.example.HelloWorld" && echo "HelloWorld service is registered" || echo "HelloWorld service NOT found"
+            
+            echo "Test round $counter completed. Waiting 30 seconds..."
+            sleep 30
+            counter=$((counter + 1))
+          done
 
       volumeMounts:
         - name: dbus-session-socket
