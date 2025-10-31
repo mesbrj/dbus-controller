@@ -66,7 +66,7 @@ Each container in the POD must implement its own D-Bus interfaces related to its
 Docker can be used instead of Podman, but Podman is preferred for its POD support and isolation.
 In a Docker environment, all containers are able to access the session bus (if configured for it).
 
-## Run on VMs and physical computers (x86-64, ARM-arch32-64 and single-board computers)
+## Run on VMs, physical computers and single-board-computers (x86-64, ARM-arch32-64 platforms)
 
 The D-Bus (software and libraries from freedesktop.org) works in Unix and Linux systems apart from the init system (Systemd, SysV, OpenRC, BSD rc, etc).
 In this scenario, the D-Bus Controller can be run as a service or application that connects to the system and session buses of the host system.
