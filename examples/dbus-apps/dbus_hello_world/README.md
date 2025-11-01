@@ -12,128 +12,59 @@ A simple Go application that exposes a D-Bus service with properties and methods
 
 ### Properties (Read-only)
 - `Data` (string): Returns "Hello World"
-- `PID` (int32): Returns the process ID of the service
+- `PID` (int32): Returns the process ID of the HelloWorld running service
 
 ### Methods
 - `Hello(name string)`: Returns "Hello, {name}!"
 
-## Building and Running
+## Example HelloWorld Service Pod Deployment (podman)
 
-### Option 1: Docker/Podman (Recommended)
-
-1. **Build the Docker image:**
-   ```bash
-   cd examples/dbus-apps/dbus_hello_world
-   podman build -t dbus-hello-world:latest .
-   ```
-   
-   **Note**: The Dockerfile uses `dbus-user-session` (not `dbus-x11`) for proper containerized D-Bus session management.
-
-2. **Run the service in a container:**
-   ```bash
-   podman run --rm -d --name dbus-hello-world dbus-hello-world:latest
-   ```
-
-3. **Test the service:**
-   ```bash
-   # Test Hello method
-   podman exec dbus-hello-world dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld com.example.HelloWorld.Hello string:"World"
-   
-   # Test Data property
-   podman exec dbus-hello-world dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.Get string:"com.example.HelloWorld" string:"Data"
-   ```
-
-4. **View logs:**
-   ```bash
-   podman logs dbus-hello-world
-   ```
-
-5. **Stop the service:**
-   ```bash
-   podman stop dbus-hello-world
-   ```
-
-### Option 2: Local Build
-
-1. **Download dependencies:**
-   ```bash
-   go mod tidy
-   ```
-
-2. **Build the application:**
-   ```bash
-   go build -o dbus-hello-world .
-   ```
-
-3. **Run the service:**
-   ```bash
-   ./dbus-hello-world
-   ```
-
-## Testing with D-Bus Commands
-
-### 1. List Available Services
 ```bash
-dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames
+# On the root of the repository
+podman build -f Dockerfile -t dbus-controller:latest
+cd examples/dbus-apps/dbus_hello_world
+podman build -f Dockerfile -t dbus-hello-world:latest
+# Publishes all containerPort definitions
+podman play kube --publish-all dbus-hello-world-pod.yaml
 ```
 
-### 2. Call Hello Method
-```bash
-dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld com.example.HelloWorld.Hello string:"World"
-```
+## Example HelloWorld Service Pod Deployment (kubernetes)
 
-### 3. Get Data Property
-```bash
-dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.Get string:"com.example.HelloWorld" string:"Data"
-```
+ ...
 
-### 4. Get PID Property
-```bash
-dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.Get string:"com.example.HelloWorld" string:"PID"
-```
+## Expected results and behavior
 
-### 5. Introspect Service
-```bash
-dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Introspectable.Introspect
-```
+- **controller-service** Container:
+    - D-Bus session daemon
+    - D-Bus Controller API listening on port 8080
 
-## Testing with D-Bus Controller API
+![](/docs/controller-service.png)
+>
 
-Once the service is running, you can also test it using the D-Bus Controller REST API:
+- **dbus-hello-world-service** Container:
+    - Registers the `com.example.HelloWorld` service on the D-Bus session bus
+    - Responds via D-Bus to property and method calls as defined
 
-1. **List session services** (should include com.example.HelloWorld):
-   ```bash
-   curl http://localhost:8080/buses/session/services
-   ```
+![](/docs/dbus-hello-world-service.png)
+>
 
-2. **Get service info**:
-   ```bash
-   curl http://localhost:8080/buses/session/services/com.example.HelloWorld
-   ```
+- **dbus-hello-world-client** Container:
+    - Connects to the D-Bus session bus
+    - Enter a loop of "testing" the HelloWorld service every 30 seconds:
+        - Calls (via D-Bus) and prints the `Data` and `PID` properties from the `com.example.HelloWorld` service
+        - Calls (via D-Bus) and prints the result of the `Hello` method with a sample name: Client-<test_round_number>
 
-3. **Call Hello method**:
-   ```bash
-   curl -X POST http://localhost:8080/buses/session/services/com.example.HelloWorld/interfaces/com.example.HelloWorld/methods/Hello/call \
-     -H "Content-Type: application/json" \
-     -d '{"arguments": ["World"]}'
-   ```
+![](/docs/dbus-hello-world-client.png)
+>
 
-4. **Get properties**:
-   ```bash
-   curl http://localhost:8080/buses/session/services/com.example.HelloWorld/interfaces/com.example.HelloWorld/properties/Data
-   curl http://localhost:8080/buses/session/services/com.example.HelloWorld/interfaces/com.example.HelloWorld/properties/PID
-   ```
+- **D-Bus Controller API**:
+    - Accessible via HTTP on port 8080
+    - Listenning only in the `controller-service` container
+    - Will perform D-Bus operations on `com.example.HelloWorld` service running in the `dbus-hello-world-service` container
 
-## Expected Output
+![](/docs/d-bus-controller-api.png)
+>
 
-When you call the Hello method with "World", you should get:
-```
-"Hello, World!"
-```
+- **D-Bus Controller API**: Bugs starting here:
 
-The Data property should return:
-```
-"Hello World"
-```
-
-The PID property should return the process ID of the running service.
+![](/docs/bugs-d-bus-controller-api.png)

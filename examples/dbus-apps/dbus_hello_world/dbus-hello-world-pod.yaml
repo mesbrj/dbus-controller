@@ -22,6 +22,10 @@ spec:
         capabilities:
           drop:
             - ALL
+      ports:
+        - name: http-api
+          containerPort: 8080
+          protocol: TCP
       command:
         - /bin/bash
         - -c
@@ -66,9 +70,6 @@ spec:
             sleep 1
           done
           
-          echo "Testing D-Bus connectivity..."
-          dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames || echo "D-Bus test completed"
-          
           echo "Starting D-Bus Controller API..."
           /usr/local/bin/dbus-controller &
           API_PID=$!
@@ -83,24 +84,6 @@ spec:
             echo "Waiting for API... ($i/30)"
             sleep 1
           done
-          
-          echo "Testing API endpoints..."
-          echo "=== Available buses ==="
-          curl -s http://localhost:8080/buses | jq '.' 2>/dev/null || curl -s http://localhost:8080/buses
-          
-          echo -e "\n=== Session bus services ==="
-          curl -s http://localhost:8080/buses/session/services | jq '. | length' 2>/dev/null || curl -s http://localhost:8080/buses/session/services
-          
-          echo -e "\n=== API Documentation ==="
-          echo "OpenAPI spec: http://localhost:8080/swagger/openapi.json"
-          echo "Swagger UI: http://localhost:8080/swagger/index.html"
-
-          echo -e "\n=== Fetching OpenAPI spec ==="
-          curl -s http://localhost:8080/swagger/openapi.json | jq || echo "Failed to parse OpenAPI spec"
-
-          echo -e "\n=== D-Bus Controller API is running ==="
-          echo "Access the API at: http://localhost:8080"
-          echo "Monitoring both D-Bus daemon and API..."
           
           # Monitor both processes
           while kill -0 $DBUS_PID 2>/dev/null && kill -0 $API_PID 2>/dev/null; do
@@ -152,15 +135,9 @@ spec:
           
           export DBUS_SESSION_BUS_ADDRESS="unix:path=/shared/dbus/session_bus_socket"
           echo "Connected to shared session bus: $DBUS_SESSION_BUS_ADDRESS"
-          
-          echo "Testing D-Bus connectivity..."
-          dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.ListNames || echo "D-Bus test completed"
-          
+
           echo "Starting D-Bus Hello World service..."
           /usr/local/bin/dbus-hello-world
-
-          echo "HelloWorld interface properties..."
-          dbus-send --session --print-reply --dest=com.example.HelloWorld /com/example/HelloWorld org.freedesktop.DBus.Properties.GetAll string:"com.example.HelloWorld" || echo "Failed to get HelloWorld properties"
 
       volumeMounts:
         - name: dbus-session-socket
@@ -244,3 +221,21 @@ spec:
         limits:
           memory: "128Mi"
           cpu: "100m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: dbus-controller-hello-world-service
+  labels:
+    app: dbus-controller-hello-world
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http-api
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: dbus-controller-hello-world
