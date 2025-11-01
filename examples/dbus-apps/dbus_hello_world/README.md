@@ -34,9 +34,14 @@ podman play kube --publish-all dbus-hello-world-pod.yaml
 
 ## Expected results and behavior
 
+- **POD created**
+
+![](/docs/POD.png)
+>
+
 - **controller-service** Container:
     - D-Bus session daemon
-    - D-Bus Controller API listening on port 8080
+    - D-Bus Controller API listening on port 8080 (only this container listens on this port)
 
 ![](/docs/controller-service.png)
 >
